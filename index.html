@@ -1,0 +1,359 @@
+<title>Night Owl Cafés</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: phone-first. Map pinned to the top, a scrolling list of cafe cards under it, one control bar between. */
+:root{
+  --bg:#eef0f6; --surface:#ffffff; --ink:#1b2033; --muted:#5d6480; --line:#d6dae7;
+  --lamp:#b8650a; --lamp-soft:#fbe9d0; --night:#2b3566;
+  --map-bg:#e3e7f2; --map-road:#ffffff; --map-road-major:#f6dcb4; --map-campus:#d4dfcf; --map-label:#7a809b; --map-ring:#b8650a;
+  --good:#1f7a4d; --warn:#9a6a00; --bad:#b03a2e;
+  --font-display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --font-body:"Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+  --font-mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1324; --surface:#181d33; --ink:#e9ebf5; --muted:#9aa1bf; --line:#2a3152;
+  --lamp:#f2a541; --lamp-soft:#3a2c17; --night:#aab4ef;
+  --map-bg:#141a30; --map-road:#2a3254; --map-road-major:#5a4628; --map-campus:#1f3229; --map-label:#7d84a6; --map-ring:#f2a541;
+  --good:#5cc68f; --warn:#e8b64a; --bad:#ef7d70; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1324; --surface:#181d33; --ink:#e9ebf5; --muted:#9aa1bf; --line:#2a3152;
+  --lamp:#f2a541; --lamp-soft:#3a2c17; --night:#aab4ef;
+  --map-bg:#141a30; --map-road:#2a3254; --map-road-major:#5a4628; --map-campus:#1f3229; --map-label:#7d84a6; --map-ring:#f2a541;
+  --good:#5cc68f; --warn:#e8b64a; --bad:#ef7d70; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.45}
+.wrap{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 40px}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--font-display);font-weight:800;font-size:1.65rem;letter-spacing:-.02em;margin:0;text-wrap:balance}
+h1 span{color:var(--lamp)}
+.clock{font-family:var(--font-mono);font-size:.85rem;color:var(--muted)}
+.mapbox{position:relative;margin-top:10px;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--map-bg);height:min(46vh,380px);touch-action:none}
+.mapbox svg{display:block;width:100%;height:100%;user-select:none;-webkit-user-select:none}
+.mapbox.picking{outline:3px solid var(--lamp);outline-offset:-3px;cursor:crosshair}
+.mapctl{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:6px}
+.mapctl button,.pill{font:inherit;font-size:.85rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:6px 10px;cursor:pointer}
+.mapctl button{width:36px;height:36px;padding:0;font-size:1.1rem;font-weight:700}
+.mapnote{position:absolute;left:8px;bottom:8px;right:52px;font-size:.78rem;background:var(--surface);color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:4px 8px}
+.loc{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.loc .label{font-size:.85rem;color:var(--muted)}
+.loc b{color:var(--ink)}
+.pill.primary{background:var(--lamp);color:#fff;border-color:var(--lamp);font-weight:700}
+:root[data-theme="dark"] .pill.primary{color:#1b1407}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .pill.primary{color:#1b1407}}
+.pill.on{background:var(--lamp-soft);border-color:var(--lamp);color:var(--ink)}
+.status{font-size:.82rem;color:var(--muted);margin-top:6px;min-height:1.2em}
+.sortbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:10px;margin-top:6px;border-bottom:1px solid var(--line)}
+.sortrow{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.sortrow::-webkit-scrollbar{display:none}
+.sortrow .pill{white-space:nowrap}
+.count{font-size:.82rem;color:var(--muted);margin-top:8px}
+ol.list{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;scroll-margin-top:80px}
+.card.sel{border-color:var(--lamp);box-shadow:0 0 0 2px var(--lamp-soft)}
+.rank{grid-row:span 2;width:30px;height:30px;border-radius:50%;background:var(--night);color:var(--surface);display:grid;place-items:center;font-family:var(--font-mono);font-size:.8rem}
+.card.closed .rank{background:var(--muted)}
+.top{min-width:0;display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap}
+.name{font-family:var(--font-display);font-weight:600;font-size:1.12rem;margin:0}
+.walk{font-family:var(--font-mono);font-size:.85rem;color:var(--lamp);white-space:nowrap}
+.sub{min-width:0;font-size:.85rem;color:var(--muted)}
+.meta{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{font-size:.78rem;border-radius:999px;padding:3px 9px;border:1px solid var(--line);white-space:nowrap}
+.chip.open{color:var(--good);border-color:var(--good)}
+.chip.closing{color:var(--warn);border-color:var(--warn)}
+.chip.shut{color:var(--bad);border-color:var(--bad)}
+.chip.mono{font-family:var(--font-mono)}
+.scores{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.score .lab{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.bar{display:flex;gap:3px;margin-top:4px}
+.bar i{flex:1;height:6px;border-radius:3px;background:var(--line)}
+.bar i.f{background:var(--lamp)}
+.score .why{font-size:.8rem;color:var(--muted);margin-top:4px}
+.unconf{font-size:.7rem;color:var(--muted);border:1px dashed var(--muted);border-radius:4px;padding:0 4px;margin-left:4px;text-transform:none;letter-spacing:0}
+.links{grid-column:1/-1;display:flex;gap:14px;margin-top:10px;font-size:.88rem;flex-wrap:wrap}
+.nosite{color:var(--muted)}
+.links a.site{color:var(--lamp)}
+.links a{color:var(--night);font-weight:700;text-decoration:none}
+.links a:hover,.links a:focus-visible{text-decoration:underline}
+.hoursnote{grid-column:1/-1;font-size:.78rem;color:var(--muted);margin-top:6px}
+.far{margin-top:18px}
+.far summary{cursor:pointer;color:var(--muted);font-size:.88rem}
+.notes{margin-top:28px;font-size:.82rem;color:var(--muted);border-top:1px solid var(--line);padding-top:14px;max-width:65ch}
+.notes h2{font-family:var(--font-display);font-size:1rem;color:var(--ink);margin:0 0 6px}
+button:focus-visible,a:focus-visible{outline:2px solid var(--lamp);outline-offset:2px}
+@media (max-width:420px){.scores{grid-template-columns:1fr}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Night Owl <span>Cafés</span></h1>
+    <div class="clock" id="clock"></div>
+  </header>
+
+  <div class="mapbox" id="mapbox">
+    <svg id="map" aria-label="Map of Berkeley cafes" role="img"></svg>
+    <div class="mapctl">
+      <button id="zin" aria-label="Zoom in">+</button>
+      <button id="zout" aria-label="Zoom out">−</button>
+      <button id="zfit" aria-label="Fit map" style="font-size:.75rem">fit</button>
+    </div>
+    <div class="mapnote" id="mapnote">Amber ring = about 45 minutes on foot. Tap a pin to jump to that cafe.</div>
+  </div>
+
+  <div class="loc">
+    <button class="pill primary" id="gps">Use my location</button>
+    <button class="pill" id="pick">Tap map to set spot</button>
+    <span class="label">From: <b id="fromname">Downtown Berkeley BART</b></span>
+  </div>
+  <div class="loc" id="presets"></div>
+  <div class="status" id="status"></div>
+
+  <div class="sortbar">
+    <div class="sortrow" role="group" aria-label="Sort cafes" id="sorts"></div>
+    <div class="count" id="count"></div>
+  </div>
+
+  <ol class="list" id="list"></ol>
+  <details class="far" id="farbox" hidden>
+    <summary id="farsum"></summary>
+    <ol class="list" id="farlist"></ol>
+  </details>
+
+  <section class="notes">
+    <h2>About this list</h2>
+    <p>Only cafes that stay open past 3 PM are included. Hours, prices and notes were gathered in early November 2026 from Yelp, Google, Apple Maps, delivery listings, UC Berkeley student guides and local news. Hours change often, so check before a late walk.</p>
+    <p>Study and bathroom scores are 1–5 summaries of what reviewers say (seating, Wi-Fi, outlets, noise, restroom access). Bathroom scores marked “unconfirmed” had no specific reviewer comments and are set to a neutral 3.</p>
+    <p>Walking time is estimated from straight-line distance plus 30% for street layout, at about 3 mph. Chai Thai Tea is the Thai tea shop at 1796 Shattuck, and Derda is Dera Cafe at 1620 Shattuck.</p>
+  </section>
+</div>
+
+<script>
+(function(){
+"use strict";
+// Hours: index 0=Sun..6=Sat; [open,close] in minutes after midnight; null = closed that day. 24*60 = midnight.
+const H=(o,c)=>[o,c], t=(h,m=0)=>h*60+m;
+const every=(o,c)=>Array(7).fill(H(o,c));
+const CAFES=[
+ {id:"elaichi",site:"https://elaichico.com/",siteLabel:"Website",name:"elaichi co.",addr:"2161 Allston Way",lat:37.8695,lng:-122.2667,price:2,study:4,bath:3,bathC:false,
+  hours:[H(t(8),t(19)),H(t(7,30),t(21)),H(t(7,30),t(21)),H(t(7,30),t(21)),H(t(7,30),t(21)),H(t(7,30),t(21)),H(t(8),t(21))],
+  kind:"South Asian chai and coffee",studyWhy:"Bright, cozy room that student writers call a good study spot; busy at peak hours.",bathWhy:"No restroom details in reviews."},
+ {id:"qahwa",name:"Qahwa Time",addr:"2440 Shattuck Ave",lat:37.8655,lng:-122.2672,price:1,study:4,bath:3,bathC:false,
+  hours:every(t(8),t(23)),hoursNote:"Closing time (11 PM) confirmed; opening time not confirmed.",
+  kind:"Yemeni coffee, beans roasted on site",studyWhy:"Lots of seating and free Wi-Fi; reviewers tag it as work-friendly and peaceful.",bathWhy:"Listed as disability-accessible; no restroom comments."},
+ {id:"qargo",site:"https://qargocoffee.com/",siteLabel:"Website",name:"Qargo Coffee",addr:"2344 Telegraph Ave",lat:37.8677,lng:-122.2590,price:2,study:3,bath:3,bathC:false,
+  hours:every(t(8),t(23)),hoursNote:"Google lists 8 AM–11 PM; Uber Eats shows 9 PM. Call if heading there late.",
+  kind:"Lavazza espresso, Italian pastries",studyWhy:"Free Wi-Fi and comfortable seating near campus; hosts trivia nights, so some evenings are loud.",bathWhy:"No restroom comments."},
+ {id:"heyma",site:"https://www.heymacoffeeca.com/Locations",siteLabel:"Website",name:"Heyma Yemeni Coffee",addr:"1122 University Ave",lat:37.8693,lng:-122.2905,price:2,study:4,bath:3,bathC:false,
+  hours:[H(t(8),t(23)),H(t(7,30),t(23,30)),H(t(7,30),t(23,30)),H(t(7,30),t(23,30)),H(t(7,30),t(23,30)),H(t(7,30),t(24)),H(t(8),t(24))],
+  kind:"Yemeni lattes, milk cake",studyWhy:"Good amount of seating and free Wi-Fi; packed with students before finals, so lines get long late.",bathWhy:"No restroom comments."},
+ {id:"bespresso",site:"https://www.berkeleyespresso.com/",siteLabel:"Website",name:"Berkeley Espresso",addr:"1900 Shattuck Ave",lat:37.8737,lng:-122.2685,price:1,study:5,bath:4,bathC:true,
+  hours:every(t(6),t(21)),
+  kind:"Classic coffee house, sandwiches",studyWhy:"Reviewers call it a perfect work cafe: not too loud, reliable Wi-Fi, plenty of outlets, mix of table sizes.",bathWhy:"Work-from-cafe guides list a customer restroom."},
+ {id:"victory",site:"https://www.victorypointcafe.com/",siteLabel:"Website",name:"Victory Point Cafe",addr:"1797 Shattuck Ave",lat:37.8749,lng:-122.2688,price:1,study:4,bath:4,bathC:true,
+  hours:every(t(9),t(23)),hoursNote:"Some listings show a 10 AM opening.",
+  kind:"Board game cafe, coffee, beer, pizza",studyWhy:"Large room with outlets, couches and outdoor seats. After 6 PM, game players get priority when it's crowded.",bathWhy:"Customer restroom listed in work-from-cafe guides."},
+ {id:"chathai",site:"https://order.online/store/-28652985/",siteLabel:"Online ordering page",name:"Chai Thai Tea",addr:"1796 Shattuck Ave",lat:37.874916,lng:-122.26892,price:2,study:1,bath:2,bathC:false,
+  hours:every(t(11,30),t(20,30)),hoursNote:"Hours taken from online ordering (orders until 8:25 PM).",
+  kind:"Thai milk tea, pandan toast",studyWhy:"Seating is very limited; better for a drink to go.",bathWhy:"Small shop; no restroom comments."},
+ {id:"roast",site:"https://www.toasttab.com/local/order/roast-toast-1746-shattuck-ave",siteLabel:"Online ordering page",name:"Roast & Toast Cafe",addr:"1746 Shattuck Ave",lat:37.8757,lng:-122.2690,price:1,study:3,bath:3,bathC:false,
+  hours:[H(t(8),t(20)),H(t(8),t(20)),H(t(8),t(20)),H(t(8),t(20)),H(t(8),t(20)),H(t(8),t(21)),H(t(8),t(21))],
+  kind:"Coffee, sandwiches, ice cream",studyWhy:"Good Wi-Fi and plenty of indoor and outdoor seats, but few outlets.",bathWhy:"No restroom comments."},
+ {id:"dera",site:"https://www.yelp.com/biz/dera-cafe-berkeley",siteLabel:"Yelp page",name:"Dera Cafe",addr:"1620 Shattuck Ave",lat:37.87791,lng:-122.26929,price:2,study:4,bath:3,bathC:false,
+  hours:[H(t(8),t(19)),H(t(8),t(20)),H(t(8),t(20)),H(t(8),t(20)),H(t(8),t(20)),H(t(8),t(20)),H(t(8),t(20))],
+  kind:"Pakistani chai, lattes, chaat",studyWhy:"Yelp reviewers describe it as quiet and a nice cafe to study in.",bathWhy:"No restroom comments."},
+ {id:"parisien",site:"https://www.facebook.com/p/Caf%C3%A9-Parisien-61560622894531/",siteLabel:"Facebook page",name:"Café Parisien",addr:"1625 Shattuck Ave",lat:37.8778,lng:-122.2696,price:1,study:3,bath:4,bathC:true,
+  hours:[H(t(8,30),t(19)),null,H(t(8,30),t(19)),H(t(7,30),t(19)),H(t(7,30),t(19)),H(t(7,30),t(19)),H(t(8,30),t(19))],hoursNote:"Closed Mondays.",
+  kind:"Family-run French pastries and espresso",studyWhy:"Calm, bright and well lit, but a compact room.",bathWhy:"Reviewers mention the facilities are good."},
+ {id:"strada",site:"https://www.caffestrada.com/",siteLabel:"Website",name:"Caffè Strada",addr:"2300 College Ave",lat:37.8689,lng:-122.2549,price:1,study:4,bath:1,bathC:true,
+  hours:[H(t(7),t(24)),H(t(6,30),t(24)),H(t(6,30),t(24)),H(t(6,30),t(24)),H(t(6,30),t(24)),H(t(6,30),t(24)),H(t(7),t(24))],hoursNote:"Yelp shows open until midnight; one guide lists 11 PM.",
+  kind:"Berkeley institution, heated patio",studyWhy:"Lots of indoor and patio seating and Wi-Fi; fills up quickly.",bathWhy:"One coin-operated restroom that reviewers say to avoid."},
+ {id:"milano",name:"Cafe Milano",addr:"2522 Bancroft Way",lat:37.8687,lng:-122.2586,price:1,study:4,bath:3,bathC:false,
+  hours:[H(t(8),t(20)),H(t(7),t(22)),H(t(7),t(22)),H(t(7),t(22)),H(t(7),t(22)),H(t(7),t(22)),H(t(8),t(20))],
+  kind:"Big brick-walled room by campus",studyWhy:"Known as a haven for studying students; ample seating, though you may share a table.",bathWhy:"No restroom comments."},
+ {id:"sanaa",name:"Sana'a Cafe",addr:"Telegraph Ave at Dwight Way",lat:37.8645,lng:-122.2588,price:1,study:4,bath:3,bathC:false,
+  hours:every(t(7),t(24)),hoursNote:"Opened July 2026. Midnight closing from local news; exact street number not confirmed.",
+  kind:"Yemeni coffee and pastries",studyWhy:"Local news describes it full of students studying late on a Sunday night.",bathWhy:"No restroom comments."},
+ {id:"mind",site:"https://www.themindcoffee.com/",siteLabel:"Website",name:"Mind Coffee",addr:"1816 Euclid Ave",lat:37.8756,lng:-122.2601,price:2,study:2,bath:2,bathC:false,
+  hours:every(t(7,30),t(17)),hoursNote:"Weekday hours confirmed; weekend hours not confirmed.",
+  kind:"Matcha and specialty coffee",studyWhy:"Fast Wi-Fi and outlets, but only 12–14 seats and often a wait.",bathWhy:"Small shop; no restroom comments."},
+ {id:"sightglass",site:"https://sightglasscoffee.com/pages/sightglass-berkeley",siteLabel:"Website",name:"Sightglass Coffee",addr:"2169 University Ave",lat:37.8721,lng:-122.2663,price:2,study:3,bath:3,bathC:false,
+  hours:[H(t(8),t(17)),H(t(7),t(17)),H(t(7),t(17)),H(t(7),t(17)),H(t(7),t(17)),H(t(7),t(17)),H(t(8),t(17))],
+  kind:"Specialty roaster, opened May 2026",studyWhy:"New downtown cafe; few study reviews yet.",bathWhy:"No restroom comments."},
+ {id:"lama",site:"https://order.online/store/-45752/",siteLabel:"Online ordering page",name:"Lama Bean's Cafe",addr:"1290 6th St",lat:37.8805,lng:-122.3004,price:2,study:3,bath:3,bathC:false,
+  hours:every(t(7),t(21)),hoursNote:"Mon–Thu hours confirmed; others assumed the same.",
+  kind:"Tibetan-run cafe, West Berkeley",studyWhy:"Neighborhood cafe with seating; few study-specific reviews.",bathWhy:"No restroom comments."}
+];
+
+const PRESETS=[
+ {name:"Downtown Berkeley BART",lat:37.8701,lng:-122.2681},
+ {name:"Sather Gate",lat:37.8702,lng:-122.2595},
+ {name:"North Shattuck",lat:37.8790,lng:-122.2690},
+ {name:"Telegraph & Durant",lat:37.8678,lng:-122.2589},
+ {name:"West Berkeley",lat:37.8700,lng:-122.2950}
+];
+const ROADS=[
+ {n:"Shattuck Ave",m:1,p:[[37.8850,-122.2690],[37.8640,-122.2675],[37.8555,-122.2662]]},
+ {n:"Telegraph Ave",m:1,p:[[37.8688,-122.2590],[37.8555,-122.2602]]},
+ {n:"College Ave",m:1,p:[[37.8690,-122.2548],[37.8555,-122.2523]]},
+ {n:"University Ave",m:1,p:[[37.8668,-122.3010],[37.8722,-122.2680]]},
+ {n:"San Pablo Ave",m:1,p:[[37.8860,-122.2975],[37.8555,-122.2870]]},
+ {n:"Bancroft Way",m:0,p:[[37.8686,-122.2720],[37.8686,-122.2530]]},
+ {n:"Dwight Way",m:0,p:[[37.8640,-122.2920],[37.8640,-122.2540]]},
+ {n:"Hearst Ave",m:0,p:[[37.8745,-122.2860],[37.8752,-122.2560]]},
+ {n:"Cedar St",m:0,p:[[37.8781,-122.2980],[37.8781,-122.2620]]},
+ {n:"Euclid Ave",m:0,p:[[37.8755,-122.2602],[37.8860,-122.2610]]},
+ {n:"MLK Jr Way",m:0,p:[[37.8850,-122.2738],[37.8555,-122.2700]]},
+ {n:"Sacramento St",m:0,p:[[37.8850,-122.2810],[37.8555,-122.2770]]},
+ {n:"6th St",m:0,p:[[37.8840,-122.3015],[37.8600,-122.2930]]},
+ {n:"Ashby Ave",m:0,p:[[37.8555,-122.2900],[37.8555,-122.2500]]}
+];
+const CAMPUS=[[37.8757,-122.2665],[37.8757,-122.2530],[37.8690,-122.2530],[37.8690,-122.2665]];
+const AREAS=[["UC Berkeley",37.8725,-122.2598],["Downtown",37.8705,-122.2715],["North Shattuck",37.8800,-122.2725],["Southside",37.8610,-122.2560],["West Berkeley",37.8740,-122.2960]];
+
+const WALK_MAX=45, SPEED=80, DETOUR=1.3; // m/min, street factor
+const LAT0=37.870, K=111320, COS=Math.cos(LAT0*Math.PI/180);
+const proj=(lat,lng)=>[(lng+122.27)*COS*K, -(lat-LAT0)*K];
+const unproj=(x,y)=>[LAT0 - y/K, x/(COS*K) - 122.27];
+
+let me={name:"Downtown Berkeley BART",lat:37.8701,lng:-122.2681,gps:false};
+let sortKey="dist", picking=false, selected=null;
+try{const s=JSON.parse(localStorage.getItem("noc-from")||"null"); if(s&&s.lat) me=s;}catch(e){}
+try{const s=localStorage.getItem("noc-sort"); if(s) sortKey=s;}catch(e){}
+
+const $=id=>document.getElementById(id);
+function hav(a,b,c,d){const R=6371000,r=Math.PI/180,dl=(c-a)*r,dg=(d-b)*r;const x=Math.sin(dl/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin(dg/2)**2;return 2*R*Math.asin(Math.sqrt(x));}
+function fmtT(m){if(m>=24*60)return m===24*60?"midnight":fmtT(m-24*60);const h=Math.floor(m/60),mm=m%60,ap=h>=12?"PM":"AM";const hh=((h+11)%12)+1;return hh+(mm?":"+String(mm).padStart(2,"0"):"")+" "+ap;}
+function now(){const d=new Date();return {day:d.getDay(),min:d.getHours()*60+d.getMinutes()};}
+function status(c){const n=now(),h=c.hours[n.day];
+  // also covers being after midnight on a late night (closing at midnight only, so no carry-over needed)
+  if(!h) return {cls:"shut",txt:"Closed today",close:-1};
+  const [o,cl]=h;
+  if(n.min<o) return {cls:"shut",txt:"Opens "+fmtT(o),close:cl};
+  if(n.min>=cl) return {cls:"shut",txt:"Closed · was open to "+fmtT(cl),close:cl};
+  const left=cl-n.min; return {cls:left<=60?"closing":"open",txt:(left<=60?"Closing soon · ":"Open · ")+"until "+fmtT(cl),close:cl,open:true};
+}
+function enrich(){return CAFES.map(c=>{const m=hav(me.lat,me.lng,c.lat,c.lng)*DETOUR;return Object.assign({},c,{meters:m,mins:Math.max(1,Math.round(m/SPEED)),st:status(c)});});}
+
+const SORTS=[
+ ["dist","Nearest",(a,b)=>a.meters-b.meters],
+ ["close","Open latest",(a,b)=>b.st.close-a.st.close||a.meters-b.meters],
+ ["price","Cheapest",(a,b)=>a.price-b.price||a.meters-b.meters],
+ ["study","Best for studying",(a,b)=>b.study-a.study||a.meters-b.meters],
+ ["bath","Easiest bathroom",(a,b)=>b.bath-a.bath||(b.bathC-a.bathC)||a.meters-b.meters]
+];
+function renderSorts(){const row=$("sorts");row.innerHTML="";SORTS.forEach(([k,l])=>{const b=document.createElement("button");b.className="pill"+(k===sortKey?" on":"");b.textContent=l;b.id="sort-"+k;b.setAttribute("aria-pressed",k===sortKey);b.onclick=()=>{sortKey=k;try{localStorage.setItem("noc-sort",k)}catch(e){}renderSorts();renderList();};row.appendChild(b);});}
+
+function bar(n){let s='<div class="bar">';for(let i=1;i<=5;i++)s+='<i class="'+(i<=n?"f":"")+'"></i>';return s+"</div>";}
+function card(c,i){
+  const li=document.createElement("li");li.className="card"+(c.st.open?"":" closed")+(selected===c.id?" sel":"");li.id="card-"+c.id;
+  const miles=(c.meters/1609).toFixed(1);
+  const dest=encodeURIComponent(c.addr+", Berkeley, CA");
+  const yelp="https://www.yelp.com/search?find_desc="+encodeURIComponent(c.name)+"&find_loc="+encodeURIComponent("Berkeley, CA");
+  const todayH=c.hours[now().day];
+  li.innerHTML='<div class="rank">'+(i+1)+'</div>'+
+   '<div class="top"><h3 class="name"></h3><span class="walk">'+c.mins+' min walk · '+miles+' mi</span></div>'+
+   '<div class="sub"></div>'+
+   '<div class="meta"><span class="chip '+c.st.cls+'">'+c.st.txt+'</span>'+
+     '<span class="chip mono">'+(c.price===1?"$":"$$")+'</span>'+
+     '<span class="chip mono">Today '+(todayH?fmtT(todayH[0])+"–"+fmtT(todayH[1]):"closed")+'</span></div>'+
+   '<div class="scores"><div class="score"><div class="lab">Study-friendly '+c.study+'/5</div>'+bar(c.study)+'<div class="why"></div></div>'+
+     '<div class="score"><div class="lab">Bathroom '+c.bath+'/5'+(c.bathC?"":'<span class="unconf">unconfirmed</span>')+'</div>'+bar(c.bath)+'<div class="why"></div></div></div>'+
+   (c.hoursNote?'<div class="hoursnote"></div>':"")+
+   '<div class="links">'+(c.site?'<a class="site" target="_blank" rel="noopener" href="'+c.site+'">'+c.siteLabel+'</a>':'<span class="nosite">No website found</span>')+'<a target="_blank" rel="noopener" href="https://maps.apple.com/?daddr='+dest+'&dirflg=w">Walking directions</a>'+
+   '<a target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&travelmode=walking&destination='+dest+'">Google Maps</a>'+
+   '<a target="_blank" rel="noopener" href="'+yelp+'">Yelp reviews</a></div>';
+  li.querySelector(".name").textContent=c.name;
+  li.querySelector(".sub").textContent=c.addr+" · "+c.kind;
+  const w=li.querySelectorAll(".why");w[0].textContent=c.studyWhy;w[1].textContent=c.bathWhy;
+  if(c.hoursNote) li.querySelector(".hoursnote").textContent=c.hoursNote;
+  li.addEventListener("click",e=>{if(e.target.closest("a"))return;selected=c.id;drawMap();document.querySelectorAll(".card.sel").forEach(x=>x.classList.remove("sel"));li.classList.add("sel");});
+  return li;
+}
+let lastList=[];
+function renderList(){
+  const all=enrich(), fn=SORTS.find(s=>s[0]===sortKey)[2];
+  const near=all.filter(c=>c.mins<=WALK_MAX).sort(fn), far=all.filter(c=>c.mins>WALK_MAX).sort((a,b)=>a.meters-b.meters);
+  lastList=all;
+  const L=$("list");L.innerHTML="";near.forEach((c,i)=>L.appendChild(card(c,i)));
+  const openN=near.filter(c=>c.st.open).length;
+  $("count").textContent=near.length+" cafes within a 45-minute walk · "+openN+" open now";
+  const fb=$("farbox");fb.hidden=!far.length;
+  if(far.length){$("farsum").textContent=far.length+" more beyond 45 minutes";const F=$("farlist");F.innerHTML="";far.forEach((c,i)=>F.appendChild(card(c,i)));}
+  $("fromname").textContent=me.name;
+  drawMap();
+}
+
+// ---------- map ----------
+const svg=$("map"), NS="http://www.w3.org/2000/svg";
+let vb=null;
+function fit(){
+  const pts=CAFES.map(c=>proj(c.lat,c.lng));pts.push(proj(me.lat,me.lng));
+  let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;pts.forEach(([x,y])=>{x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y);});
+  const pad=250, r=svg.getBoundingClientRect(), asp=(r.width||360)/(r.height||300);
+  let w=x1-x0+pad*2,h=y1-y0+pad*2; if(w/h<asp) w=h*asp; else h=w/asp;
+  const cx=(x0+x1)/2,cy=(y0+y1)/2; vb={x:cx-w/2,y:cy-h/2,w,h}; applyVB();
+}
+function applyVB(){svg.setAttribute("viewBox",vb.x+" "+vb.y+" "+vb.w+" "+vb.h);drawMap();}
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);(parent||svg).appendChild(e);return e;}
+function drawMap(){
+  if(!vb) return;
+  const u=vb.w/360; // one css-ish unit
+  svg.innerHTML="";
+  el("rect",{x:vb.x-5000,y:vb.y-5000,width:vb.w+10000,height:vb.h+10000,fill:"var(--map-bg)"});
+  el("polygon",{points:CAMPUS.map(p=>proj(p[0],p[1]).join(",")).join(" "),fill:"var(--map-campus)"});
+  ROADS.forEach(r=>el("polyline",{points:r.p.map(p=>proj(p[0],p[1]).join(",")).join(" "),fill:"none",stroke:r.m?"var(--map-road-major)":"var(--map-road)","stroke-width":(r.m?4:2.5)*u,"stroke-linecap":"round"}));
+  ROADS.filter(r=>r.m).forEach(r=>{const a=proj(r.p[0][0],r.p[0][1]),b=proj(r.p[1][0],r.p[1][1]);const mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2;let ang=Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI;if(ang>90)ang-=180;if(ang<-90)ang+=180;
+    const tx=el("text",{x:mx,y:my-3*u,"font-size":8*u,fill:"var(--map-label)","text-anchor":"middle","font-family":"Atkinson Hyperlegible, sans-serif",transform:"rotate("+ang+" "+mx+" "+my+")"});tx.textContent=r.n;});
+  AREAS.forEach(a=>{const [x,y]=proj(a[1],a[2]);const tx=el("text",{x,y,"font-size":10*u,fill:"var(--map-label)","text-anchor":"middle","font-weight":"700","letter-spacing":.5*u,"font-family":"Atkinson Hyperlegible, sans-serif"});tx.textContent=a[0].toUpperCase();});
+  const [mx,my]=proj(me.lat,me.lng);
+  el("circle",{cx:mx,cy:my,r:WALK_MAX*SPEED/DETOUR,fill:"var(--lamp)","fill-opacity":.07,stroke:"var(--map-ring)","stroke-width":1.5*u,"stroke-dasharray":(6*u)+" "+(4*u)});
+  const ranked=(lastList.length?lastList:enrich());
+  ranked.forEach(c=>{const [x,y]=proj(c.lat,c.lng);const g=el("g",{class:"pin",style:"cursor:pointer"});
+    const sel=selected===c.id, inR=c.mins<=WALK_MAX;
+    el("circle",{cx:x,cy:y,r:(sel?9:7)*u,fill:c.st.open?"var(--night)":"var(--muted)",stroke:sel?"var(--lamp)":"var(--surface)","stroke-width":(sel?3:1.6)*u,opacity:inR?1:.45},g);
+    if(sel||vb.w<1800){const tx=el("text",{x:x+10*u,y:y+3.5*u,"font-size":9*u,fill:"var(--ink)","font-weight":"700",stroke:"var(--map-bg)","stroke-width":2.5*u,"paint-order":"stroke","font-family":"Atkinson Hyperlegible, sans-serif"},g);tx.textContent=c.name;}
+    g.dataset.id=c.id;});
+  el("circle",{cx:mx,cy:my,r:12*u,fill:"var(--lamp)","fill-opacity":.25});
+  el("circle",{cx:mx,cy:my,r:6*u,fill:"var(--lamp)",stroke:"var(--surface)","stroke-width":2*u});
+}
+function svgPt(ev){const p=svg.createSVGPoint();p.x=ev.clientX;p.y=ev.clientY;return p.matrixTransform(svg.getScreenCTM().inverse());}
+function zoom(f,cx,cy){if(cx==null){cx=vb.x+vb.w/2;cy=vb.y+vb.h/2;}const nw=Math.min(Math.max(vb.w*f,500),14000),k=nw/vb.w;vb={x:cx-(cx-vb.x)*k,y:cy-(cy-vb.y)*k,w:nw,h:vb.h*k};applyVB();}
+$("zin").onclick=()=>zoom(.7);$("zout").onclick=()=>zoom(1/.7);$("zfit").onclick=fit;
+const ptrs=new Map();let drag=null,moved=false,pinch=null;
+svg.addEventListener("pointerdown",e=>{svg.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});moved=false;
+  if(ptrs.size===1)drag={x:e.clientX,y:e.clientY,vb:Object.assign({},vb)};
+  if(ptrs.size===2){const [a,b]=[...ptrs.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),vb:Object.assign({},vb)};drag=null;}});
+svg.addEventListener("pointermove",e=>{if(!ptrs.has(e.pointerId))return;ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});const r=svg.getBoundingClientRect();
+  if(pinch&&ptrs.size===2){const [a,b]=[...ptrs.values()];const d=Math.hypot(a.x-b.x,a.y-b.y);if(d>0){const f=pinch.d/d;const c={x:(a.x+b.x)/2,y:(a.y+b.y)/2};vb=Object.assign({},pinch.vb);const p=svgPt({clientX:c.x,clientY:c.y});zoom(f,p.x,p.y);}moved=true;return;}
+  if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.abs(dx)+Math.abs(dy)>6)moved=true;if(moved){const s=drag.vb.w/r.width;vb={x:drag.vb.x-dx*s,y:drag.vb.y-dy*s,w:drag.vb.w,h:drag.vb.h};applyVB();}}});
+function endPtr(e){if(!ptrs.has(e.pointerId))return;ptrs.delete(e.pointerId);if(ptrs.size<2)pinch=null;
+  if(ptrs.size===0){if(!moved&&drag){
+      if(picking){const p=svgPt(e);const [lat,lng]=unproj(p.x,p.y);setFrom({name:"Spot on map",lat,lng});setPicking(false);}
+      else{const t=document.elementFromPoint(e.clientX,e.clientY);const g=t&&t.closest&&t.closest(".pin");if(g){selected=g.dataset.id;renderList();const cEl=$("card-"+selected);if(cEl){if(cEl.closest("details"))cEl.closest("details").open=true;cEl.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"});}}}}
+    drag=null;}}
+svg.addEventListener("pointerup",endPtr);svg.addEventListener("pointercancel",e=>{ptrs.delete(e.pointerId);drag=null;pinch=null;});
+svg.addEventListener("wheel",e=>{e.preventDefault();const p=svgPt(e);zoom(e.deltaY>0?1.15:1/1.15,p.x,p.y);},{passive:false});
+
+// ---------- location ----------
+function setFrom(f){me=f;try{localStorage.setItem("noc-from",JSON.stringify(f))}catch(e){}renderList();}
+function setPicking(on){picking=on;$("mapbox").classList.toggle("picking",on);$("pick").classList.toggle("on",on);
+  $("mapnote").textContent=on?"Tap the map where you are.":"Amber ring = about 45 minutes on foot. Tap a pin to jump to that cafe.";}
+$("pick").onclick=()=>setPicking(!picking);
+$("gps").onclick=()=>{const s=$("status");
+  if(!("geolocation" in navigator)){s.textContent="This browser can't share location. Tap the map or pick a spot below.";return;}
+  s.textContent="Finding you…";
+  navigator.geolocation.getCurrentPosition(p=>{s.textContent="Using your current location (±"+Math.round(p.coords.accuracy)+" m).";setFrom({name:"My location",lat:p.coords.latitude,lng:p.coords.longitude,gps:true});fit();},
+    ()=>{s.textContent="Location isn't available in this view. Tap “Tap map to set spot” or pick a nearby spot below.";setPicking(true);},
+    {enableHighAccuracy:true,timeout:10000,maximumAge:60000});};
+PRESETS.forEach(p=>{const b=document.createElement("button");b.className="pill";b.textContent=p.name;b.onclick=()=>{setFrom(Object.assign({},p));$("status").textContent="";};$("presets").appendChild(b);});
+
+function tick(){const d=new Date();$("clock").textContent=d.toLocaleDateString(undefined,{weekday:"short"})+" "+d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});}
+tick();setInterval(()=>{tick();renderList();},60000);
+renderSorts();renderList();
+requestAnimationFrame(fit);
+addEventListener("resize",()=>{clearTimeout(window.__rf);window.__rf=setTimeout(fit,200);});
+})();
+</script>
